@@ -126,7 +126,8 @@ def validate_entry(entry: str) -> bool:
     :return bool: result
     """
     return all(
-        part.split('=')[0] in ('cn', 'ou', 'dc') and len(part.split('=')) == 2
+        re.match(r'^[a-zA-Z\-]+$',
+                 part.split('=')[0]) and len(part.split('=')) == 2
         for part in entry.split(','))
 
 
