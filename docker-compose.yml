@@ -147,6 +147,16 @@ services:
       - "traefik.http.routers.pg.entrypoints=web"
       - "traefik.http.services.pg.loadbalancer.server.port=80"
 
+  krb5:
+    build:
+      context: .kerberos
+    volumes:
+      - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
+      - .kerberos/kadm5.acl:/var/kerberos/krb5kdc/kadm5.acl
+      - .kerberos/krb5.conf:/etc/krb5.conf
+    image: krb5md
+    command: /usr/sbin/krb5kdc -n -r MD.MULTIFACTOR.DEV -P superpassword
+
   interface:
     build:
       context: ./interface
