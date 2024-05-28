@@ -154,6 +154,8 @@ services:
     volumes:
       - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
       - .kerberos/krb5.conf:/etc/krb5.conf
+      - keyfile:/etc/krb5.d/stash.keyfile
+      - kdc:/etc/krb5kdc/
     image: krb5md
     tty: true
     depends_on:
@@ -182,3 +184,5 @@ volumes:
   postgres:
   pgadmin:
   wireshark:
+  keyfile:
+  kdc:
