@@ -12,14 +12,14 @@ class Scope(int, Enum):
 
     ```
     BASE_OBJECT = 0
-    SINGLEL_EVEL = 1
+    SINGLE_LEVEL = 1
     WHOLE_SUBTREE = 2
     SUBORDINATE_SUBTREE = 3
     ```
     """
 
     BASE_OBJECT = 0
-    SINGLEL_EVEL = 1
+    SINGLE_LEVEL = 1
     WHOLE_SUBTREE = 2
     SUBORDINATE_SUBTREE = 3
 
