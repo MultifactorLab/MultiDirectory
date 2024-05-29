@@ -238,3 +238,23 @@ class AddRequest(BaseRequest):
                 yield AddResponse(result_code=LDAPCodes.ENTRY_ALREADY_EXISTS)
             else:
                 yield AddResponse(result_code=LDAPCodes.SUCCESS)
+
+    @classmethod
+    def from_dict(
+        cls, entry: str,
+        attributes: dict[str, list[str]],
+        password: str | None = None,
+    ) -> 'AddRequest':
+        """Create AddRequest from dict.
+
+        :param str entry: entry
+        :param dict[str, list[str]] attributes: dict of attrs
+        :return AddRequest: instance
+        """
+        return AddRequest(
+            entry=entry,
+            attributes=[
+                PartialAttribute(type=name, vals=vals)
+                for name, vals in attributes.items()],
+            password=password,
+        )
