@@ -9,8 +9,6 @@ from typing import Annotated
 from fastapi.params import Depends
 from fastapi.routing import APIRouter
 
-from api.auth import User, get_current_user
-from config import Settings, get_settings
 from ldap_protocol.dialogue import Session as LDAPSession
 from ldap_protocol.ldap_requests import (
     AddRequest,
@@ -22,15 +20,9 @@ from ldap_protocol.ldap_responses import LDAPResult
 from models.database import AsyncSession, get_session
 
 from .schema import SearchRequest, SearchResponse, SearchResultDone
+from .utils import ldap_session
 
 entry_router = APIRouter(prefix='/entry', tags=['LDAP API'])
-
-
-def ldap_session(
-        user: Annotated[User, Depends(get_current_user)],
-        settings: Annotated[Settings, Depends(get_settings)]) -> LDAPSession:
-    """Create LDAP session."""
-    return LDAPSession(user=user, settings=settings)
 
 
 @entry_router.post('/search')
