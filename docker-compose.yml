@@ -154,9 +154,11 @@ services:
     volumes:
       - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
       - .kerberos/krb5.conf:/etc/krb5.conf
-      - keyfile:/etc/krb5.d/stash.keyfile
+      - keyfile:/etc/krb5.d/
       - kdc:/etc/krb5kdc/
+      - .kerberos/config_server.py:/config_server.py
     image: krb5md
+    command: fastapi dev config_server.py
     tty: true
     depends_on:
       - md
