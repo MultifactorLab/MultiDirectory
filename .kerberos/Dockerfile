@@ -1,6 +1,6 @@
 # Dockerfile - kdc-server
 
-FROM debian:buster-slim
+FROM python:3.11-slim
 
 # kerberos server configuration
 
@@ -25,6 +25,9 @@ RUN rm -r /var/lib/krb5kdc/;\
     touch /var/log/kerberos/krb5.log;\
     touch /var/log/kerberos/kadmin.log;\
     touch /var/log/kerberos/krb5lib.log;
+
+RUN pip install fastapi
+COPY config_server.py /
 
 # kdb5_ldap_util -D "cn=mdadmin,ou=users,dc=md,dc=multifactor,dc=dev" stashsrvpw -f /etc/krb5.d/stash.keyfile cn=krbadmin,ou=users,dc=md,dc=multifactor,dc=dev
 # kdb5_ldap_util -D "cn=mdadmin,ou=users,dc=md,dc=multifactor,dc=dev" create -subtrees "cn=kerberos,ou=services,dc=md,dc=multifactor,dc=dev" -r MD.MULTIFACTOR.DEV -s
