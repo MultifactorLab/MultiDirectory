@@ -318,7 +318,6 @@ class PoolClientHandler:
     async def start(self) -> None:
         """Run and log tcp server."""
         server = await self._get_server()
-        self.log_addrs(server)
         try:
             await self._run_server(server)
         finally:
