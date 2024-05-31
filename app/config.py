@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     TIMEZONE: ZoneInfo = Field(
         ZoneInfo('UTC'), alias='TZ')
 
+    KRB5_LDAP_URI: str = 'ldap://md'
+
     @field_validator('TIMEZONE', mode='before')
     def create_tz(cls, tz: str) -> ZoneInfo:  # noqa: N805
         """Get timezone from a string."""
