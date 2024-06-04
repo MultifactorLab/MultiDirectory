@@ -1,47 +1,76 @@
 """Simple server for executing krb5 commands."""
 
 import asyncio
-from typing import Annotated
 
-from fastapi import Body, FastAPI, HTTPException, Response, UploadFile, status
+from fastapi import FastAPI, HTTPException, Response, status
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-app = FastAPI()
+app = FastAPI(
+    name="MultiDirectory",
+    title="MultiDirectory",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*'],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class ConfigSchema(BaseModel):
+    """Main Config."""
+
+    domain: str
+    admin_dn: str
+    krbadmin_dn: str
+    services_dn: str
+    krbadmin_password: str
+    admin_password: str
+    stash_password: str
+    krb5_config: str
 
 
 @app.post('/setup', response_class=Response, status_code=201)
-async def run_setup(
-    domain: Annotated[str, Body()],
-    admin_dn: Annotated[str, Body()],
-    krbadmin_dn: Annotated[str, Body()],
-    krbadmin_password: Annotated[str, Body()],
-    admin_password: Annotated[str, Body()],
-    stash_password: Annotated[str, Body()],
-    krb5_config: UploadFile,
-) -> None:
+async def run_setup(schema: ConfigSchema) -> None:
     """Set up server."""
     with open('/etc/krb5.conf', 'wb') as f:
-        f.write(krb5_config.read())
+        f.write(bytes.fromhex(schema.krb5_config))
 
-    stash = await asyncio.create_subprocess_exec(
+    proc = await asyncio.create_subprocess_exec(
         "kdb5_ldap_util",
-        "-D", admin_dn,
-        "stashsrvpw", "-f", "/etc/krb5.d/stash.keyfile", krbadmin_dn,
+        "-D", schema.admin_dn,
+        "stashsrvpw", "-f", "/etc/krb5.d/stash.keyfile", schema.krbadmin_dn,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
+    data = b'\n'.join([
+        schema.admin_password.encode(),
+        schema.krbadmin_password.encode(),
+        schema.krbadmin_password.encode(),
+    ]) + b'\n'
 
-    await stash.communicate(admin_password.encode())
-    await stash.communicate(krbadmin_password.encode())
-    await stash.communicate(krbadmin_password.encode())
-    if await stash.wait() != 0:
-        raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY)
+    await proc.communicate(input=data)
 
-    create = await asyncio.create_subprocess_exec(
-        "kdb5_ldap_util",
-        "-D", admin_dn,
-        "create", "-subtrees", krbadmin_dn, "-r", domain.upper(), "-s",
+    if await proc.wait() != 0:
+        raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY, 'failed stash')
+
+    create_proc = await asyncio.create_subprocess_exec(
+        "kdb5_ldap_util", "-D", schema.admin_dn,
+        "create", "-subtrees", schema.services_dn,
+        "-r", schema.domain.upper(), "-s",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
-    await create.communicate(admin_password.encode())
-    await create.communicate(stash_password.encode())
-    await create.communicate(stash_password.encode())
+    data = b'\n'.join([
+        schema.admin_password.encode(),
+        schema.stash_password.encode(),
+        schema.stash_password.encode(), b'',
+    ])
+    await create_proc.communicate(input=data)
 
-    if await stash.wait() != 0:
-        raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY)
+    if await create_proc.wait() != 0:
+        raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY, 'failed realm')
