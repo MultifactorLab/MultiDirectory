@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     Field,
+    HttpUrl,
     IPvAnyAddress,
     PostgresDsn,
     computed_field,
@@ -75,6 +76,7 @@ class Settings(BaseSettings):
         ZoneInfo('UTC'), alias='TZ')
 
     KRB5_LDAP_URI: str = 'ldap://md'
+    KRB5_CONFIG_SERVER: HttpUrl = 'http://krb5:8000'  # type: ignore
 
     @field_validator('TIMEZONE', mode='before')
     def create_tz(cls, tz: str) -> ZoneInfo:  # noqa: N805
