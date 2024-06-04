@@ -1,7 +1,7 @@
 """KRB5 router."""
 
-from asyncio import gather
 from typing import Annotated
+from urllib.parse import urljoin
 
 import httpx
 import jinja2
@@ -10,10 +10,11 @@ from fastapi.params import Depends
 from fastapi.routing import APIRouter
 from pydantic import EmailStr
 
+from api.auth import User, get_current_user
 from config import Settings, get_settings
 from ldap_protocol.dialogue import Session as LDAPSession
 from ldap_protocol.ldap_requests import AddRequest
-from ldap_protocol.utils import get_base_dn
+from ldap_protocol.utils import get_base_dn, get_dn_by_id
 from models.database import AsyncSession, get_session
 
 from .utils import get_krb_http_client, ldap_session
@@ -27,6 +28,7 @@ TEMPLATES = jinja2.Environment(
 
 @krb5_router.post('setup', response_class=Response)
 async def setup_kdc(
+    user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     ldap_session: Annotated[LDAPSession, Depends(ldap_session)],
     mail: Annotated[EmailStr, Body(example='admin')],
@@ -52,31 +54,27 @@ async def setup_kdc(
     base_dn = await get_base_dn(session)
     domain = await get_base_dn(session, normal=True)
 
-    krbadmin = 'cn=krbadmin,ou=users' + base_dn
+    krbadmin = 'cn=krbadmin,ou=users,' + base_dn
     services_container = 'ou=services,' + base_dn
+    krbgroup = 'cn=krbadmin,cn=groups,' + base_dn
 
-    group = AddRequest.from_dict(
-        'cn=krbadmin,ou=groups,' + base_dn,
-        {
-            "objectClass": ["group", "top", 'posixGroup'],
-            'groupType': ['-2147483646'],
-            'instanceType': ['4'],
-            'sAMAccountName': ['krbadmin'],
-            'sAMAccountType': ['268435456'],
-            'description': ["Kerberos administrator's group."],
-            'gidNumber': ["800"],
-        },
-    )
+    group = AddRequest.from_dict(krbgroup, {
+        "objectClass": ["group", "top", 'posixGroup'],
+        'groupType': ['-2147483646'],
+        'instanceType': ['4'],
+        'description': ["Kerberos administrator's group."],
+        'gidNumber': ["800"],
+    })
 
     services = AddRequest.from_dict(
         services_container,
         {"objectClass": ["organizationalUnit", "top", "container"]},
     )
 
-    user = AddRequest.from_dict(
+    rkb_user = AddRequest.from_dict(
         krbadmin, password=krbadmin_password,
         attributes={
-            "mail": mail,
+            "mail": [mail],
             "objectClass": [
                 "user", "top", "person",
                 "organizationalPerson",
@@ -91,7 +89,7 @@ async def setup_kdc(
             "sn": ["krbadmin"],
             "uid": ["krbadmin"],
             "homeDirectory": ["/home/krbadmin"],
-            "groups": ['krbadmin'],
+            "memberOf": [group],
             "sAMAccountName": ['krbadmin'],
             "userPrincipalName": ['krbadmin'],
             "displayName": ["Kerberos Administrator"],
@@ -99,11 +97,12 @@ async def setup_kdc(
     )
 
     async with session.begin_nested():
-        results = await gather(
-            anext(group.handle(ldap_session, session)),
-            anext(user.handle(ldap_session, session)),
-            anext(services.handle(ldap_session, session)),
+        results = (
+            await anext(services.handle(ldap_session, session)),
+            await anext(group.handle(ldap_session, session)),
+            await anext(rkb_user.handle(ldap_session, session)),
         )
+        await session.commit()
         if not all(result.result_code == 0 for result in results):
             await session.rollback()
             raise HTTPException(status.HTTP_409_CONFLICT)
@@ -116,15 +115,16 @@ async def setup_kdc(
         services_container=services_container,
         ldap_uri=settings.KRB5_LDAP_URI,
     )
-
-    response = await client.post('http://krb5:8000/setup', json={
+    krb_config_server = urljoin(str(settings.KRB5_CONFIG_SERVER), 'setup')
+    response = await client.post(krb_config_server, json={
         "domain": domain,
-        "admin_dn": '',
+        "admin_dn": await get_dn_by_id(user.directory_id, session),
+        "services_dn": services_container,
         "krbadmin_dn": krbadmin,
         "krbadmin_password": krbadmin_password,
         "admin_password": admin_password,
         "stash_password": stash_password,
-    }, files={'krb5_config': config})
+        'krb5_config': config.encode().hex()})
 
-    if response.status_code != 0:
+    if response.status_code != status.HTTP_201_CREATED:
         raise HTTPException(status.HTTP_304_NOT_MODIFIED)
