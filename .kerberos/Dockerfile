@@ -30,8 +30,6 @@ RUN rm -r /var/lib/krb5kdc/;\
 RUN pip install fastapi
 COPY config_server.py /
 
-# kdb5_ldap_util -D "cn=mdadmin,ou=users,dc=md,dc=multifactor,dc=dev" stashsrvpw -f /etc/krb5.d/stash.keyfile cn=krbadmin,ou=users,dc=md,dc=multifactor,dc=dev
-# kdb5_ldap_util -D "cn=mdadmin,ou=users,dc=md,dc=multifactor,dc=dev" create -subtrees "cn=kerberos,ou=services,dc=md,dc=multifactor,dc=dev" -r MD.MULTIFACTOR.DEV -s
 EXPOSE 8000
 # COPY supervisord.conf /etc/supervisord.conf
 # CMD ["/usr/sbin/krb5kdc", "-n", "-r", "MD.MULTIFACTOR.DEV", "-P", "superpassword"]
