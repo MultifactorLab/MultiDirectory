@@ -250,6 +250,7 @@ class PoolClientHandler:
         """Create session for request."""
         async with self.AsyncSessionFactory() as session:
             yield session
+            await session.commit()
 
     @staticmethod
     def _req_log_full(addr: str, msg: LDAPRequestMessage) -> None:
