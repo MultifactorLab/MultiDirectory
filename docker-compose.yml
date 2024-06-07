@@ -163,7 +163,10 @@ services:
     depends_on:
       - md
     ports:
-      - 8000:8000
+      - 8000:8000  # config server
+      - 88:88  # kdc
+      - 464:464  # kadmin
+      - 749:749  # kadmin
     # command: /usr/sbin/krb5kdc -n -r MD.MULTIFACTOR.DEV -P superpassword
 
   interface:
