@@ -26,7 +26,7 @@ TEMPLATES = jinja2.Environment(
     enable_async=True, autoescape=True)
 
 
-@krb5_router.post('setup', response_class=Response)
+@krb5_router.post('/setup', response_class=Response)
 async def setup_kdc(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
