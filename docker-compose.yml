@@ -153,7 +153,7 @@ services:
     container_name: krb5
     volumes:
       - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
-      - .kerberos/krb5.conf:/etc/krb5.conf
+      # - .kerberos/krb5.conf:/etc/krb5.conf
       - keyfile:/etc/krb5.d/
       - kdc:/etc/krb5kdc/
       - .kerberos/config_server.py:/server/config_server.py
