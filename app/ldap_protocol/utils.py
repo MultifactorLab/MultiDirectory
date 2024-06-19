@@ -529,6 +529,3 @@ async def get_dn_by_id(id_: int, session: AsyncSession) -> str:
     result = await session.scalar(query)
 
     return get_path_dn(result.path, await get_base_dn(session))
-
-
-
