@@ -73,4 +73,4 @@ async def run_setup(schema: ConfigSchema) -> None:
     _, stderr = await create_proc.communicate(input=data)
 
     if await create_proc.wait() != 0:
-        raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY, stderr)
+        raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY, stderr.decode())
