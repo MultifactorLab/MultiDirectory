@@ -19,5 +19,8 @@ def ldap_session(
 
 async def get_krb_http_client() -> AsyncIterator[httpx.AsyncClient]:
     """Get async client for DI."""
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(
+        timeout=30,
+        verify="/certs/krbcert.pem",
+    ) as client:
         yield client
