@@ -72,6 +72,7 @@ services:
     container_name: multidirectory_api
     volumes:
       - ./app:/app
+      - ./certs:/certs
     env_file:
       local.env
     command: uvicorn --factory web_app:create_app --host 0.0.0.0 --reload --loop uvloop
@@ -152,6 +153,7 @@ services:
       context: .kerberos
     container_name: krb5
     volumes:
+      - ./certs:/certs
       - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
       # - .kerberos/krb5.conf:/etc/krb5.conf
       - keyfile:/etc/krb5.d/
