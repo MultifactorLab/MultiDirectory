@@ -7,7 +7,8 @@ build:  ## build app and manually generate self-signed cert
 	docker compose build
 
 cert:  ## create self-signed cert
-	docker compose run md bash -c "cd /certs; openssl req -nodes -new -x509 -keyout privkey.pem -out cert.pem -subj '/C=RU/ST=Moscow/L=Moscow/O=Global Security/OU=Multifactor/CN=md.multifactor.dev'"
+	docker compose run md bash -c "cd /certs; openssl req -nodes -new -x509 -keyout privkey.pem -out cert.pem -subj '/C=RU/ST=Moscow/L=Moscow/O=Global Security/OU=Multifactor/CN=md.multifactor.dev'";
+	docker compose run md openssl req -nodes -new -x509 -keyout /certs/krbkey.pem -out /certs/krbcert.pem -addext "subjectAltName=DNS:krb5" -subj '/C=RU/ST=Moscow/L=Moscow/O=Global Security/OU=Multifactor/CN=krb5';
 
 up:  ## run tty container with related services, use with run command
 	make cert;
