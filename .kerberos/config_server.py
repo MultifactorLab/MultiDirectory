@@ -1,7 +1,9 @@
 """Simple server for executing krb5 commands."""
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
+import kadmin_local as kadmin
 from fastapi import FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -30,6 +32,75 @@ class ConfigSchema(BaseModel):
     admin_password: str
     stash_password: str
     krb5_config: str
+
+
+class KRBManager:
+    """Kadmin manager."""
+
+    client: kadmin.KAdmin
+
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Create threadpool and get loop."""
+        self.pool = ThreadPoolExecutor(max_workers=500)
+        self.loop = loop or asyncio.get_running_loop()
+
+    async def init_client(self) -> None:
+        """Init kadmin local connection."""
+        self.client = await self.loop.run_in_executor(self.pool, kadmin.local)
+
+    @classmethod
+    async def init_kadmin(cls) -> "KRBManager":
+        """Connect to kadmin and get class instance."""
+        kdm = cls()
+        await kdm.init_client()
+        return kdm
+
+    async def add_princ(
+            self, name: str, password: str | None, **dbargs) -> None:
+        """Create principal.
+
+        :param str name: principal
+        :param str | None password: if empty - uses randkey.
+        """
+        await self.loop.run_in_executor(
+            self.pool,
+            self.client.add_principal, name, password, dbargs)
+
+    async def get_princ(self, name: str) -> kadmin.Principal:
+        """Get principal.
+
+        :param str name: principal
+        :return kadmin.Principal: Principal
+        """
+        return await self.loop.run_in_executor(
+            self.pool, self.client.getprinc, name)
+
+    async def change_password(self, name: str, new_password: str) -> None:
+        """Chanage principal's password.
+
+        :param str name: principal
+        :param str new_password: ...
+        """
+        princ = await self.get_principal(name)
+        await self.loop.run_in_executor(
+            self.pool, princ.change_password, new_password)
+
+    async def del_princ(self, name: str) -> None:
+        """Delete principal by name.
+
+        :param str name: principal
+        """
+        await self.loop.run_in_executor(
+            self.pool, self.client.delprinc, name)
+
+    async def rename_princ(self, name: str, new_name: str) -> None:
+        """Rename principal.
+
+        :param str name: original name
+        :param str new_name: new name
+        """
+        await self.loop.run_in_executor(
+            self.pool, self.client.rename_principal, name, new_name)
 
 
 @app.post('/setup', response_class=Response, status_code=201)
