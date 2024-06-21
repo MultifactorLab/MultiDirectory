@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-buster
 
 # kerberos server configuration
 
@@ -34,7 +34,7 @@ RUN rm -r /var/lib/krb5kdc/;\
     mkdir /server;\
     mkdir /certs;
 
-RUN pip install fastapi
+RUN pip install fastapi https://github.com/xianglei/python-kadmv/releases/download/0.1.7/python-kadmV-0.1.7.tar.gz
 COPY config_server.py /server/
 # RUN openssl req -nodes -new -x509 -keyout /certs/krbkey.pem -out /certs/krbcert.pem -addext "subjectAltName=DNS:krb5" -subj '/C=RU/ST=Moscow/L=Moscow/O=Global Security/OU=Multifactor/CN=krb5'
 EXPOSE 8000
