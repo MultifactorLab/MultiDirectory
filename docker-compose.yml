@@ -1,8 +1,6 @@
 # For local development
 # Copyright (c) 2024 MultiFactor
 # License: https://github.com/MultiDirectoryLab/MultiDirectory/blob/main/LICENSE
-version: "3.7"
-
 services:
   traefik:
     image: "traefik:v2.6"
@@ -155,11 +153,13 @@ services:
     volumes:
       - ./certs:/certs
       - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
-      # - .kerberos/krb5.conf:/etc/krb5.conf
       - keyfile:/etc/krb5.d/
       - kdc:/etc/krb5kdc/
       - .kerberos/config_server.py:/server/config_server.py
       - .kerberos/supervisord.conf:/etc/supervisord.conf
+      - type: bind
+        source: ./certs/krb5.conf
+        target: /etc/krb5.conf
     image: krb5md
     tty: true
     depends_on:
