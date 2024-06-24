@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     def create_postgres(cls, v: str, values: dict) -> str:  # noqa: N805
         """Build postgres DSN."""
         return (
-            f"{values['POSTGRES_SCHEMA']}://"  # type: ignore
+            f"{values['POSTGRES_SCHEMA']}://"
             f"{values['POSTGRES_USER']}:"
             f"{values['POSTGRES_PASSWORD']}@"
             f"{values['POSTGRES_HOST']}/"
