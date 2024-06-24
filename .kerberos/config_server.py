@@ -98,7 +98,7 @@ class AbstractKRBManager(ABC, AbstractAsyncContextManager):
         """
 
 
-class KRBManager(AbstractKRBManager):
+class KAdminLocalManager(AbstractKRBManager):
     """Kadmin manager."""
 
     client: kadmin.KAdmin
@@ -107,7 +107,7 @@ class KRBManager(AbstractKRBManager):
         """Create threadpool and get loop."""
         self.loop = loop or asyncio.get_running_loop()
 
-    async def __aenter__(self) -> "KRBManager":
+    async def __aenter__(self) -> "KAdminLocalManager":
         """Create threadpool for kadmin client."""
         self.client = await self.init_client()
         self.pool = ThreadPoolExecutor(max_workers=500).__enter__()
@@ -177,14 +177,14 @@ class KRBManager(AbstractKRBManager):
 
 
 @asynccontextmanager
-async def kadmin_lifespan(app: FastAPI) -> AsyncIterator[KRBManager]:
+async def kadmin_lifespan(app: FastAPI) -> AsyncIterator[KAdminLocalManager]:
     """Create kadmin instance."""
-    async with KRBManager() as kadmind:
+    async with KAdminLocalManager() as kadmind:
         app.state.kadmind = kadmind
         yield
 
 
-def get_kadmin(request: Request) -> KRBManager:
+def get_kadmin(request: Request) -> KAdminLocalManager:
     """Stub."""
     raise NotImplementedError
 
