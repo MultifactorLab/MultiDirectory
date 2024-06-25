@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from datetime import datetime, timedelta
 from types import TracebackType
-from typing import Annotated, AsyncIterator
+from typing import Annotated, AsyncIterator, Protocol
 
 import kadmin_local as kadmin
 from fastapi import (
@@ -20,6 +20,14 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+
+class KAdminProtocol(Protocol):
+    """Stub for kadmin.KAdmin."""
+
+
+class PrincipalProtocol(Protocol):
+    """Stub for kadmin.Principal."""
 
 
 class ConfigSchema(BaseModel):
@@ -40,22 +48,20 @@ class Principal(BaseModel):
 
     kvno: int
     name: str
-    mkvno: int
     failures: int
-    last_failure: datetime
-    last_pwd_change: datetime
-    last_success: datetime
+    last_failure: datetime | None
+    last_pwd_change: datetime | None
+    last_success: datetime | None
     maxrenewlife: timedelta
     mod_date: datetime
     pwexpire: datetime | None
 
 
-class AbstractKRBManager(ABC, AbstractAsyncContextManager):
+class AbstractKRBManager(AbstractAsyncContextManager, ABC):
     """Kadmin manager."""
 
-    @abstractmethod
-    async def init_client() -> "AbstractKRBManager":
-        """Init kadmin instance."""
+    class PrincipalNotFoundError(Exception):
+        """Not found error."""
 
     @abstractmethod
     async def add_princ(
@@ -67,7 +73,7 @@ class AbstractKRBManager(ABC, AbstractAsyncContextManager):
         """
 
     @abstractmethod
-    async def get_princ(self, name: str) -> kadmin.Principal | None:
+    async def get_princ(self, name: str) -> Principal | None:
         """Get principal.
 
         :param str name: principal
@@ -101,16 +107,16 @@ class AbstractKRBManager(ABC, AbstractAsyncContextManager):
 class KAdminLocalManager(AbstractKRBManager):
     """Kadmin manager."""
 
-    client: kadmin.KAdmin
+    client: KAdminProtocol
 
-    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """Create threadpool and get loop."""
         self.loop = loop or asyncio.get_running_loop()
 
     async def __aenter__(self) -> "KAdminLocalManager":
         """Create threadpool for kadmin client."""
-        self.client = await self.init_client()
         self.pool = ThreadPoolExecutor(max_workers=500).__enter__()
+        self.client = await self.init_client()
         return self
 
     async def __aexit__(
@@ -122,7 +128,7 @@ class KAdminLocalManager(AbstractKRBManager):
         """Destroy threadpool."""
         self.pool.__exit__(exc_type, exc, tb)
 
-    async def init_client(self) -> kadmin.KAdmin:
+    async def init_client(self) -> KAdminProtocol:
         """Init kadmin local connection."""
         return await self.loop.run_in_executor(self.pool, kadmin.local)
 
@@ -135,16 +141,25 @@ class KAdminLocalManager(AbstractKRBManager):
         """
         await self.loop.run_in_executor(
             self.pool,
-            self.client.add_principal, name, password, dbargs)
+            self.client.add_principal, name, password)
 
-    async def get_princ(self, name: str) -> kadmin.Principal:
+    async def _get_raw_principal(self, name: str) -> PrincipalProtocol:
+        principal = await self.loop.run_in_executor(
+            self.pool, self.client.getprinc, name)
+
+        if not principal:
+            raise self.PrincipalNotFoundError(f'{name} not found')
+
+        return principal
+
+    async def get_princ(self, name: str) -> Principal:
         """Get principal.
 
         :param str name: principal
         :return kadmin.Principal: Principal
         """
-        return await self.loop.run_in_executor(
-            self.pool, self.client.getprinc, name)
+        principal = await self._get_raw_principal(name)
+        return Principal.model_validate(principal, from_attributes=True)
 
     async def change_password(self, name: str, new_password: str) -> None:
         """Chanage principal's password.
@@ -152,9 +167,7 @@ class KAdminLocalManager(AbstractKRBManager):
         :param str name: principal
         :param str new_password: ...
         """
-        princ = await self.get_principal(name)
-        if not princ:
-            raise KeyError
+        princ = await self._get_raw_principal(name)
         await self.loop.run_in_executor(
             self.pool, princ.change_password, new_password)
 
@@ -196,8 +209,9 @@ def get_app() -> FastAPI:
         title="MultiDirectory",
         lifespan=kadmin_lifespan,
     )
+
     app.dependency_overrides = {
-        get_kadmin: lambda request: request.app.state.kadmind,
+        get_kadmin: lambda: app.state.kadmind,
     }
     app.add_middleware(
         CORSMiddleware,
@@ -217,6 +231,20 @@ def handle_duplicate(request: Request, exc: BaseException):
     """Handle duplicate."""
     raise HTTPException(
         status.HTTP_409_CONFLICT, detail='Principal already exists')
+
+
+@app.exception_handler(kadmin.KDBNoEntryError)
+def handle_not_found_kadmin(request: Request, exc: BaseException):
+    """Handle duplicate."""
+    raise HTTPException(
+        status.HTTP_404_NOT_FOUND, detail='Principal does not exists')
+
+
+@app.exception_handler(AbstractKRBManager.PrincipalNotFoundError)
+def handle_not_found(request: Request, exc: BaseException):
+    """Handle duplicate."""
+    raise HTTPException(
+        status.HTTP_404_NOT_FOUND, detail='Principal does not exists')
 
 
 @app.post('/setup', response_class=Response, status_code=201)
@@ -278,10 +306,10 @@ async def add_princ(
     await kadmin.add_princ(name, password)
 
 
-@app.get('/principal', status_code=status.HTTP_302_FOUND)
+@app.get('/principal')
 async def get_princ(
     kadmin: Annotated[AbstractKRBManager, Depends(get_kadmin)],
-    name: Annotated[str, Body()],
+    name: str,
 ) -> Principal:
     """Add principal.
 
@@ -289,10 +317,7 @@ async def get_princ(
     :param Annotated[str, Body name: principal name
     :param Annotated[str, Body password: principal password
     """
-    principal = await kadmin.get_princ(name)
-    if not principal:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
-    return Principal.model_validate(principal, from_attributes=True)
+    return await kadmin.get_princ(name)
 
 
 @app.put('/principal', status_code=201)
@@ -307,10 +332,7 @@ async def change_princ_password(
     :param Annotated[str, Body name: principal name
     :param Annotated[str, Body password: principal password
     """
-    try:
-        await kadmin.change_password(name, password)
-    except KeyError:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    await kadmin.change_password(name, password)
 
 
 @app.patch('/principal', status_code=status.HTTP_202_ACCEPTED)
