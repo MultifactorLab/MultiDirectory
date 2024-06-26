@@ -1,23 +1,26 @@
-"""KRB5 router."""
+"""KRB5 router.
+
+Copyright (c) 2024 MultiFactor
+License: https://github.com/MultiDirectoryLab/MultiDirectory/blob/main/LICENSE
+"""
 
 from typing import Annotated
-from urllib.parse import urljoin
 
-import httpx
 import jinja2
-from fastapi import Body, HTTPException, Response, status
+from fastapi import HTTPException, Response, status
 from fastapi.params import Depends
 from fastapi.routing import APIRouter
-from pydantic import EmailStr
 
 from api.auth import User, get_current_user
 from config import Settings, get_settings
 from ldap_protocol.dialogue import Session as LDAPSession
+from ldap_protocol.kerberos import KerberosMDAPIClient, get_krb_http_client
 from ldap_protocol.ldap_requests import AddRequest
 from ldap_protocol.utils import get_base_dn, get_dn_by_id
 from models.database import AsyncSession, get_session
 
-from .utils import get_krb_http_client, ldap_session
+from .schema import KerberosSetupRequest
+from .utils import ldap_session
 
 krb5_router = APIRouter(prefix='/kerberos', tags=['KRB5 API'])
 
@@ -28,15 +31,12 @@ TEMPLATES = jinja2.Environment(
 
 @krb5_router.post('/setup', response_class=Response)
 async def setup_kdc(
+    data: KerberosSetupRequest,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     ldap_session: Annotated[LDAPSession, Depends(ldap_session)],
-    mail: Annotated[EmailStr, Body(example='admin')],
-    krbadmin_password: Annotated[str, Body(example='password')],
-    admin_password: Annotated[str, Body(example='password')],
-    stash_password: Annotated[str, Body(example='password')],
     settings: Annotated[Settings, Depends(get_settings)],
-    client: Annotated[httpx.AsyncClient, Depends(get_krb_http_client)],
+    kadmin: Annotated[KerberosMDAPIClient, Depends(get_krb_http_client)],
 ) -> None:
     """Set up KDC server.
 
@@ -72,9 +72,9 @@ async def setup_kdc(
     )
 
     rkb_user = AddRequest.from_dict(
-        krbadmin, password=krbadmin_password,
+        krbadmin, password=data.krbadmin_password.get_secret_value(),
         attributes={
-            "mail": [mail],
+            "mail": [data.mail],
             "objectClass": [
                 "user", "top", "person",
                 "organizationalPerson",
@@ -115,16 +115,17 @@ async def setup_kdc(
         services_container=services_container,
         ldap_uri=settings.KRB5_LDAP_URI,
     )
-    krb_config_server = urljoin(str(settings.KRB5_CONFIG_SERVER), 'setup')
-    response = await client.post(krb_config_server, json={
-        "domain": domain,
-        "admin_dn": await get_dn_by_id(user.directory_id, session),
-        "services_dn": services_container,
-        "krbadmin_dn": krbadmin,
-        "krbadmin_password": krbadmin_password,
-        "admin_password": admin_password,
-        "stash_password": stash_password,
-        'krb5_config': config.encode().hex()})
 
-    if response.status_code != status.HTTP_201_CREATED:
+    try:
+        await kadmin.setup(
+            domain=domain,
+            admin_dn=await get_dn_by_id(user.directory_id, session),
+            services_dn=services_container,
+            krbadmin_dn=krbadmin,
+            krbadmin_password=data.krbadmin_password.get_secret_value(),
+            admin_password=data.admin_password.get_secret_value(),
+            stash_password=data.stash_password.get_secret_value(),
+            krb5_config=config.encode().hex(),
+        )
+    except KerberosMDAPIClient.KRBAPIError:
         raise HTTPException(status.HTTP_304_NOT_MODIFIED)

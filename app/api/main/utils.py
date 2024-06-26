@@ -1,8 +1,7 @@
 """Common utils for ldap api."""
 
-from typing import Annotated, AsyncIterator
+from typing import Annotated
 
-import httpx
 from fastapi import Depends
 
 from api.auth import User, get_current_user
@@ -15,12 +14,3 @@ def ldap_session(
         settings: Annotated[Settings, Depends(get_settings)]) -> LDAPSession:
     """Create LDAP session."""
     return LDAPSession(user=user, settings=settings)
-
-
-async def get_krb_http_client() -> AsyncIterator[httpx.AsyncClient]:
-    """Get async client for DI."""
-    async with httpx.AsyncClient(
-        timeout=30,
-        verify="/certs/krbcert.pem",
-    ) as client:
-        yield client
