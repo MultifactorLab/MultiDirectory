@@ -1,4 +1,8 @@
-"""Simple server for executing krb5 commands."""
+"""Simple server for executing krb5 commands.
+
+Copyright (c) 2024 MultiFactor
+License: https://github.com/MultiDirectoryLab/MultiDirectory/blob/main/LICENSE
+"""
 
 import asyncio
 from abc import ABC, abstractmethod
@@ -197,7 +201,7 @@ async def kadmin_lifespan(app: FastAPI) -> AsyncIterator[KAdminLocalManager]:
         yield
 
 
-def get_kadmin(request: Request) -> KAdminLocalManager:
+def get_kadmin() -> KAdminLocalManager:
     """Stub."""
     raise NotImplementedError
 
@@ -226,6 +230,13 @@ def get_app() -> FastAPI:
 app = get_app()
 
 
+@app.exception_handler(kadmin.KDBAccessError)
+def handle_db_error(request: Request, exc: BaseException):
+    """Handle duplicate."""
+    raise HTTPException(
+        status.HTTP_424_FAILED_DEPENDENCY, detail='Database Error')
+
+
 @app.exception_handler(kadmin.DuplicateError)
 def handle_duplicate(request: Request, exc: BaseException):
     """Handle duplicate."""
@@ -237,14 +248,14 @@ def handle_duplicate(request: Request, exc: BaseException):
 def handle_not_found_kadmin(request: Request, exc: BaseException):
     """Handle duplicate."""
     raise HTTPException(
-        status.HTTP_404_NOT_FOUND, detail='Principal does not exists')
+        status.HTTP_404_NOT_FOUND, detail='Principal does not exist')
 
 
 @app.exception_handler(AbstractKRBManager.PrincipalNotFoundError)
 def handle_not_found(request: Request, exc: BaseException):
     """Handle duplicate."""
     raise HTTPException(
-        status.HTTP_404_NOT_FOUND, detail='Principal does not exists')
+        status.HTTP_404_NOT_FOUND, detail='Principal does not exist')
 
 
 @app.post('/setup', response_class=Response, status_code=201)
@@ -291,7 +302,7 @@ async def run_setup(schema: ConfigSchema) -> None:
         raise HTTPException(status.HTTP_424_FAILED_DEPENDENCY, stderr.decode())
 
 
-@app.post('/principal', status_code=201)
+@app.post('/principal', response_class=Response, status_code=201)
 async def add_princ(
     kadmin: Annotated[AbstractKRBManager, Depends(get_kadmin)],
     name: Annotated[str, Body()],
@@ -320,7 +331,7 @@ async def get_princ(
     return await kadmin.get_princ(name)
 
 
-@app.put('/principal', status_code=201)
+@app.patch('/principal', status_code=201, response_class=Response)
 async def change_princ_password(
     kadmin: Annotated[AbstractKRBManager, Depends(get_kadmin)],
     name: Annotated[str, Body()],
@@ -335,7 +346,10 @@ async def change_princ_password(
     await kadmin.change_password(name, password)
 
 
-@app.patch('/principal', status_code=status.HTTP_202_ACCEPTED)
+@app.put(
+    '/principal',
+    status_code=status.HTTP_202_ACCEPTED,
+    response_class=Response)
 async def rename_princ(
     kadmin: Annotated[AbstractKRBManager, Depends(get_kadmin)],
     name: Annotated[str, Body()],
