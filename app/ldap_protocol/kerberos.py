@@ -73,7 +73,16 @@ class KerberosMDAPIClient:
         """Change password request."""
         response = await self.client.patch('principal', json={
             'name': name, 'password': password})
-        if response != 200:
+        if response != 201:
+            raise self.KRBAPIError(response.json())
+
+    async def create_or_update_principal_pw(
+            self, name: str, password: str) -> None:
+        """Change password request."""
+        response = await self.client.post(
+            '/principal/create_or_update', json={
+                'name': name, 'password': password})
+        if response != 201:
             raise self.KRBAPIError(response.json())
 
     async def rename_princ(self, name: str, new_name: str) -> None:
@@ -83,17 +92,25 @@ class KerberosMDAPIClient:
         if response != 200:
             raise self.KRBAPIError(response.json())
 
+    @classmethod
+    async def get_krb_http_client(
+        cls, settings: Annotated[Settings, Depends(get_settings)],
+    ) -> AsyncIterator['KerberosMDAPIClient']:
+        """Get async client for DI."""
+        async with httpx.AsyncClient(
+            timeout=30,
+            verify="/certs/krbcert.pem",
+            base_url=settings.KRB5_CONFIG_SERVER,
+        ) as client:
+            yield cls(client)
 
-async def get_krb_http_client(
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> AsyncIterator[KerberosMDAPIClient]:
-    """Get async client for DI."""
-    async with httpx.AsyncClient(
-        timeout=30,
-        verify="/certs/krbcert.pem",
-        base_url=settings.KRB5_CONFIG_SERVER,
-    ) as client:
-        yield KerberosMDAPIClient(client)
+    get_krb_ldap_client = asynccontextmanager(get_krb_http_client)
 
 
-get_krb_ldap_client = asynccontextmanager(get_krb_http_client)
+class StubKadminMDADPIClient(KerberosMDAPIClient):
+    """Stub client for non set up dirs."""
+
+    async def get_principal(*args, **kwargs) -> ...: ...
+    async def change_principal_password(*args, **kwargs) -> ...: ...
+    async def create_or_update_principal_pw(*args, **kwargs) -> ...: ...
+    async def rename_princ(*args, **kwargs) -> ...: ...
