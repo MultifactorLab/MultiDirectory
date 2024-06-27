@@ -14,7 +14,7 @@ from fastapi.routing import APIRouter
 from api.auth import User, get_current_user
 from config import Settings, get_settings
 from ldap_protocol.dialogue import Session as LDAPSession
-from ldap_protocol.kerberos import KerberosMDAPIClient, get_krb_http_client
+from ldap_protocol.kerberos import KerberosMDAPIClient
 from ldap_protocol.ldap_requests import AddRequest
 from ldap_protocol.utils import get_base_dn, get_dn_by_id
 from models.database import AsyncSession, get_session
@@ -36,7 +36,8 @@ async def setup_kdc(
     session: Annotated[AsyncSession, Depends(get_session)],
     ldap_session: Annotated[LDAPSession, Depends(ldap_session)],
     settings: Annotated[Settings, Depends(get_settings)],
-    kadmin: Annotated[KerberosMDAPIClient, Depends(get_krb_http_client)],
+    kadmin: Annotated[
+        KerberosMDAPIClient, Depends(KerberosMDAPIClient.get_krb_http_client)],
 ) -> None:
     """Set up KDC server.
 
