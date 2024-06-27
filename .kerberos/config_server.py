@@ -93,6 +93,14 @@ class AbstractKRBManager(AbstractAsyncContextManager, ABC):
         """
 
     @abstractmethod
+    async def create_or_update_princ_pw(self, name: str, new_password) -> None:
+        """Create new principal or update password.
+
+        :param str name: principal
+        :param _type_ new_password: pw
+        """
+
+    @abstractmethod
     async def del_princ(self, name: str) -> None:
         """Delete principal by name.
 
@@ -174,6 +182,17 @@ class KAdminLocalManager(AbstractKRBManager):
         princ = await self._get_raw_principal(name)
         await self.loop.run_in_executor(
             self.pool, princ.change_password, new_password)
+
+    async def create_or_update_princ_pw(self, name: str, new_password) -> None:
+        """Create new principal or update password.
+
+        :param str name: principal
+        :param _type_ new_password: ...
+        """
+        try:
+            await self.change_password(name, new_password)
+        except self.PrincipalNotFoundError:
+            await self.add_princ(name, new_password)
 
     async def del_princ(self, name: str) -> None:
         """Delete principal by name.
@@ -337,13 +356,29 @@ async def change_princ_password(
     name: Annotated[str, Body()],
     password: Annotated[str, Body()],
 ) -> None:
-    """Add principal.
+    """Change princ pw principal.
 
     :param Annotated[AbstractKRBManager, Depends kadmin: kadmin abstract
     :param Annotated[str, Body name: principal name
     :param Annotated[str, Body password: principal password
     """
     await kadmin.change_password(name, password)
+
+
+@app.post(
+    '/principal/create_or_update', status_code=201, response_class=Response)
+async def create_or_update_princ_password(
+    kadmin: Annotated[AbstractKRBManager, Depends(get_kadmin)],
+    name: Annotated[str, Body()],
+    password: Annotated[str, Body()],
+) -> None:
+    """Change princ pw principal or create with new.
+
+    :param Annotated[AbstractKRBManager, Depends kadmin: kadmin abstract
+    :param Annotated[str, Body name: principal name
+    :param Annotated[str, Body password: principal password
+    """
+    await kadmin.create_or_update_princ_pw(name, password)
 
 
 @app.put(
