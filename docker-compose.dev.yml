@@ -1,5 +1,3 @@
-version: "3.7"
-
 services:
   traefik:
     image: "traefik:latest"
@@ -51,7 +49,10 @@ services:
           memory: 32M
 
   interface:
-    image: ghcr.io/multifactorlab/multidirectory-web-admin:latest
+    build:
+      context: interface
+      args:
+        DOCKER_BUILDKIT: 1
     container_name: multidirectory_interface
     restart: unless-stopped
     hostname: interface
@@ -65,7 +66,7 @@ services:
       - "traefik.http.services.interface.loadbalancer.server.port=80"
 
   migrations:
-    image: ghcr.io/multifactorlab/multidirectory:latest
+    image: multidirectory
     container_name: multidirectory_migrations
     restart: "no"
     environment:
@@ -81,10 +82,11 @@ services:
   ldap_server:
     build:
       context: .
-      dockerfile: ./.docker/Dockerfile
+      dockerfile: .docker/Dockerfile
       args:
         DOCKER_BUILDKIT: 1
       target: runtime
+    image: multidirectory
     restart: unless-stopped
     hostname: multidirectory
     volumes:
@@ -126,7 +128,7 @@ services:
       - traefik.tcp.services.ldaps.loadbalancer.server.port=636
 
   api_server:
-    image: ghcr.io/multifactorlab/multidirectory:latest
+    image: multidirectory
     container_name: multidirectory_api
     restart: unless-stopped
     environment:
@@ -167,7 +169,7 @@ services:
       POSTGRES_PASSWORD: 4002afa6900c4072a5577a30de99633e
       PGDATA: /data/postgres
     volumes:
-       - postgres:/data/postgres
+       - d_postgres:/data/postgres
     expose:
       - 5432
     healthcheck:
@@ -177,8 +179,31 @@ services:
       retries: 10
       start_period: 3s
 
+  krb5:
+    build:
+      context: .kerberos
+      dockerfile: ./Dockerfile
+    container_name: krb5
+    volumes:
+      - ./certs:/certs
+      - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
+      # - .kerberos/krb5.conf:/etc/krb5.conf
+      - d_keyfile:/etc/krb5.d/
+      - d_kdc:/etc/krb5kdc/
+      - .kerberos/config_server.py:/server/config_server.py
+      - .kerberos/supervisord.conf:/etc/supervisord.conf
+    image: krb5md
+    tty: true
+    depends_on:
+      - ldap_server
+    ports:
+      # - 8000:8000  # config server
+      - 88:88  # kdc
+      - 464:464  # kadmin
+      - 749:749  # kadmin
+
 volumes:
-  traefik:
-  postgres:
-  pgadmin:
-  wireshark:
+  d_postgres:
+  d_pgadmin:
+  d_keyfile:
+  d_kdc:

@@ -5,7 +5,7 @@ License: https://github.com/MultiDirectoryLab/MultiDirectory/blob/main/LICENSE
 """
 
 import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from enum import IntEnum
 from ipaddress import IPv4Address, ip_address
 from types import TracebackType
@@ -16,6 +16,7 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import Settings
+from ldap_protocol.kerberos import KerberosMDAPIClient
 from ldap_protocol.multifactor import MultifactorAPI, get_auth_ldap
 from models.ldap3 import NetworkPolicy, User
 
@@ -142,6 +143,7 @@ class Session:
     settings: Settings
 
     _mfa_api_class: type[MultifactorAPI] = MultifactorAPI
+    _kerberos_api_class: type[KerberosMDAPIClient] = KerberosMDAPIClient
 
     def __init__(
         self,
@@ -198,7 +200,10 @@ class Session:
             yield self._user
 
     async def __aenter__(self) -> 'Session':  # noqa
-        self.client = await httpx.AsyncClient().__aenter__()
+        self.stack = await AsyncExitStack().__aenter__()
+        self.client = await self.stack.enter_async_context(httpx.AsyncClient())
+        self.kadmin = await self.stack.enter_async_context(
+            self._kerberos_api_class.get_krb_ldap_client(self.settings))
         return self
 
     async def __aexit__(
@@ -213,7 +218,7 @@ class Session:
             self.writer.close()
             await self.writer.wait_closed()
 
-        await self.client.__aexit__(exc_type, exc, tb)
+        await self.stack.__aexit__(exc_type, exc, tb)
         logger.success(f'Connection {self.addr} closed')
 
     async def check_mfa(

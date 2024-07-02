@@ -5,9 +5,10 @@ Revises: aaa8ca2cb70e
 Create Date: 2024-06-04 09:33:55.605030
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
+
 # revision identifiers, used by Alembic.
 revision = '002bf88959c5'
 down_revision = 'aaa8ca2cb70e'

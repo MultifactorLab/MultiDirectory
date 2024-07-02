@@ -652,6 +652,20 @@ python-versions = ">=3.8.0"
 colors = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "jinja2"
+version = "3.1.4"
+description = "A very fast and expressive template engine."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+MarkupSafe = ">=2.0"
+
+[package.extras]
+i18n = ["Babel (>=2.7)"]
+
+[[package]]
 name = "ldap-filter"
 version = "0.2.2"
 description = "A Python utility library for working with Lightweight Directory Access Protocol (LDAP) filters."
@@ -1188,11 +1202,11 @@ python-versions = ">=3.8"
 
 [[package]]
 name = "uvicorn"
-version = "0.21.1"
+version = "0.30.0"
 description = "The lightning-fast ASGI server."
 category = "main"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 
 [package.dependencies]
 click = ">=7.0"
@@ -1267,7 +1281,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.11"
-content-hash = "6c63b466f5e0bb6e938d3372024a8a1a0fe0dff7cf5df0e3d89de7aa70e39c18"
+content-hash = "d65403f5466dbb8b4c864947b49ba0bb82c88dfb9c85ae781c6a9d92ac7fcf1a"
 
 [metadata.files]
 alembic = [
@@ -1749,6 +1763,10 @@ isort = [
     {file = "isort-5.13.2-py3-none-any.whl", hash = "sha256:8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"},
     {file = "isort-5.13.2.tar.gz", hash = "sha256:48fdfcb9face5d58a4f6dde2e72a1fb8dcaf8ab26f95ab49fab84c2ddefb0109"},
 ]
+jinja2 = [
+    {file = "jinja2-3.1.4-py3-none-any.whl", hash = "sha256:bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d"},
+    {file = "jinja2-3.1.4.tar.gz", hash = "sha256:4a3aee7acbbe7303aede8e9648d13b8bf88a429282aa6122a993f0ac800cb369"},
+]
 ldap-filter = [
     {file = "ldap-filter-0.2.2.tar.gz", hash = "sha256:0df47a3d7439e897bf4b8ad3955c60cd6f321508b00190067403191c10d94382"},
     {file = "ldap_filter-0.2.2-py2.py3-none-any.whl", hash = "sha256:8c7dd2a04052e779a212fd36681820bdbd2a4133a01a47285fbe1812552e7119"},
@@ -2205,8 +2223,8 @@ typing-extensions = [
     {file = "typing_extensions-4.9.0.tar.gz", hash = "sha256:23478f88c37f27d76ac8aee6c905017a143b0b1b886c3c9f66bc2fd94f9f5783"},
 ]
 uvicorn = [
-    {file = "uvicorn-0.21.1-py3-none-any.whl", hash = "sha256:e47cac98a6da10cd41e6fd036d472c6f58ede6c5dbee3dbee3ef7a100ed97742"},
-    {file = "uvicorn-0.21.1.tar.gz", hash = "sha256:0fac9cb342ba099e0d582966005f3fdba5b0290579fed4a6266dc702ca7bb032"},
+    {file = "uvicorn-0.30.0-py3-none-any.whl", hash = "sha256:78fa0b5f56abb8562024a59041caeb555c86e48d0efdd23c3fe7de7a4075bdab"},
+    {file = "uvicorn-0.30.0.tar.gz", hash = "sha256:f678dec4fa3a39706bbf49b9ec5fc40049d42418716cea52b53f07828a60aa37"},
 ]
 uvloop = [
     {file = "uvloop-0.17.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:ce9f61938d7155f79d3cb2ffa663147d4a76d16e08f65e2c66b77bd41b356718"},

@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     Field,
+    HttpUrl,
     IPvAnyAddress,
     PostgresDsn,
     computed_field,
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
     def create_postgres(cls, v: str, values: dict) -> str:  # noqa: N805
         """Build postgres DSN."""
         return (
-            f"{values['POSTGRES_SCHEMA']}://"  # type: ignore
+            f"{values['POSTGRES_SCHEMA']}://"
             f"{values['POSTGRES_USER']}:"
             f"{values['POSTGRES_PASSWORD']}@"
             f"{values['POSTGRES_HOST']}/"
@@ -73,6 +74,9 @@ class Settings(BaseSettings):
 
     TIMEZONE: ZoneInfo = Field(
         ZoneInfo('UTC'), alias='TZ')
+
+    KRB5_LDAP_URI: str = 'ldap://md'
+    KRB5_CONFIG_SERVER: HttpUrl = 'https://krb5:8000'  # type: ignore
 
     @field_validator('TIMEZONE', mode='before')
     def create_tz(cls, tz: str) -> ZoneInfo:  # noqa: N805

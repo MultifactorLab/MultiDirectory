@@ -356,7 +356,7 @@ class SearchRequest(BaseRequest):
         if self.scope == Scope.BASE_OBJECT and self.base_object:
             query = query.filter(get_path_filter(search_path))
 
-        elif self.scope == Scope.SINGLEL_EVEL:
+        elif self.scope == Scope.SINGLE_LEVEL:
             if root_is_base:
                 query = query.filter(func.cardinality(Path.path) == 1)
             else:

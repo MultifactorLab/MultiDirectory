@@ -513,3 +513,19 @@ def generate_domain_sid() -> str:
 
 
 get_class_name = attrgetter('__class__.__name__')
+
+
+async def get_dn_by_id(id_: int, session: AsyncSession) -> str:
+    """Get dn by id.
+
+    >>> await get_dn_by_id(0, session)
+    >>> 'cn=groups,dc=example,dc=com'
+    """
+    query = select(Directory)\
+        .join(Directory.path)\
+        .filter(Directory.id == id_)\
+        .options(selectinload(Directory.path))
+
+    result = await session.scalar(query)
+
+    return get_path_dn(result.path, await get_base_dn(session))

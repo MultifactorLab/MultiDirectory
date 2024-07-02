@@ -123,9 +123,7 @@ class PoolClientHandler:
             except RuntimeError:
                 log.exception(f"The connection {ldap_session.addr} raised")
             except ConnectionAbortedError:
-                log.info(
-                    'Connection termination initialized '
-                    f'by a client {ldap_session.addr}')
+                pass
 
     async def get_policy(self, ip: IPv4Address) -> NetworkPolicy | None:
         """Get network policies."""
@@ -250,6 +248,7 @@ class PoolClientHandler:
         """Create session for request."""
         async with self.AsyncSessionFactory() as session:
             yield session
+            await session.commit()
 
     @staticmethod
     def _req_log_full(addr: str, msg: LDAPRequestMessage) -> None:
@@ -318,7 +317,6 @@ class PoolClientHandler:
     async def start(self) -> None:
         """Run and log tcp server."""
         server = await self._get_server()
-        self.log_addrs(server)
         try:
             await self._run_server(server)
         finally:

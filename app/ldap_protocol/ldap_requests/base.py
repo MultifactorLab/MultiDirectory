@@ -56,7 +56,7 @@ class BaseRequest(ABC, BaseModel, _APIProtocol):
     async def handle(self, ldap_session: Session, session: AsyncSession) -> \
             AsyncGenerator[BaseResponse, None]:
         """Handle message with current user."""
-        yield BaseResponse()  # type: ignore
+        yield BaseResponse()
 
     async def _handle_api(
         self, ldap_session: Session,

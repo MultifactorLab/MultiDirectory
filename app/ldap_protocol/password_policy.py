@@ -132,7 +132,7 @@ class PasswordPolicySchema(BaseModel):
             last_pwd_set = await session.scalar(select(Attribute).where(
                 Attribute.directory_id == user.directory_id,
                 Attribute.name == 'pwdLastSet',
-            ))  # type: ignore
+            ))
             history = islice(
                 reversed(user.password_history),
                 self.password_history_length)

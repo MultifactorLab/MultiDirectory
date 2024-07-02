@@ -4,7 +4,7 @@ Copyright (c) 2024 MultiFactor
 License: https://github.com/MultiDirectoryLab/MultiDirectory/blob/main/LICENSE
 """
 
-from pydantic import Field
+from pydantic import BaseModel, EmailStr, Field, SecretStr
 from sqlalchemy.sql.expression import Select
 
 from ldap_protocol.filter_interpreter import (
@@ -31,3 +31,12 @@ class SearchRequest(APIMultipleResponseMixin, LDAPSearchRequest):  # noqa: D101
 
 class SearchResponse(SearchResultDone):  # noqa: D101
     search_result: list[SearchResultEntry]
+
+
+class KerberosSetupRequest(BaseModel):
+    """Kerberos setup data."""
+
+    mail: EmailStr
+    krbadmin_password: SecretStr
+    admin_password: SecretStr
+    stash_password: SecretStr
