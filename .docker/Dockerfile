@@ -28,6 +28,7 @@ ENV VIRTUAL_ENV=/venvs/.venv \
     PATH="/venvs/.venv/bin:$PATH" \
     VERSION=${VERSION:-beta}
 
+RUN set -eux; apt-get update -y && apt-get install netcat --no-install-recommends -y
 COPY app /app
 COPY pyproject.toml /
 
