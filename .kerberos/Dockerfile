@@ -11,7 +11,6 @@ ENV LANG=C.UTF-8 \
 RUN set -eux; \
     apt-get update -y; \
     apt-get install \
-    supervisor \
     krb5-kdc-ldap \
     krb5-pkinit \
     krb5-admin-server \
@@ -30,13 +29,9 @@ RUN rm -r /var/lib/krb5kdc/;\
     touch /var/log/kerberos/krb5.log;\
     touch /var/log/kerberos/kadmin.log;\
     touch /var/log/kerberos/krb5lib.log;\
-    mkdir -pv /var/log/supervisord/;\
     mkdir /server;\
     mkdir /certs;
 
 RUN pip install fastapi https://github.com/xianglei/python-kadmv/releases/download/0.1.7/python-kadmV-0.1.7.tar.gz
 COPY config_server.py /server/
-# RUN openssl req -nodes -new -x509 -keyout /certs/krbkey.pem -out /certs/krbcert.pem -addext "subjectAltName=DNS:krb5" -subj '/C=RU/ST=Moscow/L=Moscow/O=Global Security/OU=Multifactor/CN=krb5'
 EXPOSE 8000
-COPY supervisord.conf /etc/supervisord.conf
-CMD ["supervisord", "-n", "-c", "/etc/supervisord.conf"]
