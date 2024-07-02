@@ -123,9 +123,7 @@ class PoolClientHandler:
             except RuntimeError:
                 log.exception(f"The connection {ldap_session.addr} raised")
             except ConnectionAbortedError:
-                log.info(
-                    'Connection termination initialized '
-                    f'by a client {ldap_session.addr}')
+                pass
 
     async def get_policy(self, ip: IPv4Address) -> NetworkPolicy | None:
         """Get network policies."""
