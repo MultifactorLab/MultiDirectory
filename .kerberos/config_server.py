@@ -128,7 +128,7 @@ class KAdminLocalManager(AbstractKRBManager):
     async def __aenter__(self) -> "KAdminLocalManager":
         """Create threadpool for kadmin client."""
         self.pool = ThreadPoolExecutor(max_workers=500).__enter__()
-        self.client = await self.init_client()
+        self.client = await self._init_client()
         return self
 
     async def __aexit__(
@@ -140,7 +140,7 @@ class KAdminLocalManager(AbstractKRBManager):
         """Destroy threadpool."""
         self.pool.__exit__(exc_type, exc, tb)
 
-    async def init_client(self) -> KAdminProtocol:
+    async def _init_client(self) -> KAdminProtocol:
         """Init kadmin local connection."""
         return await self.loop.run_in_executor(self.pool, kadmin.local)
 
@@ -238,10 +238,8 @@ def get_app() -> FastAPI:
     }
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=['*'],
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],
     )
     return app
 
