@@ -29,7 +29,7 @@ services:
         DOCKER_BUILDKIT: 1
       target: runtime
     image: multidirectory
-    restart: "no" #unless-stopped
+    restart: unless-stopped
     # container_name: multidirectory
     volumes:
       - ./app:/app
@@ -64,6 +64,12 @@ services:
       - traefik.tcp.routers.ldaps.entrypoints=ldaps
       - traefik.tcp.routers.ldaps.service=ldaps
       - traefik.tcp.services.ldaps.loadbalancer.server.port=636
+    healthcheck:
+      test: ["CMD-SHELL", "nc -zv 127.0.0.1 389 636"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 3s
 
   api:
     image: multidirectory
@@ -149,7 +155,8 @@ services:
   krb5:
     build:
       context: .kerberos
-    container_name: krb5
+    container_name: krb5_kdc
+    restart: unless-stopped
     volumes:
       - ./certs:/certs
       - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
@@ -165,11 +172,33 @@ services:
     depends_on:
       - md
     ports:
-      - 8000:8000  # config server
       - 88:88  # kdc
-      - 464:464  # kadmin
-      - 749:749  # kadmin
-    # command: /usr/sbin/krb5kdc -n -r MD.MULTIFACTOR.DEV -P superpassword
+    command: /usr/sbin/krb5kdc -n -w 4
+
+  kadmin:
+    image: krb5md
+    container_name: krb5_kadmin
+    restart: unless-stopped
+    volumes:
+      - ./certs:/certs
+      - .kerberos/kdc.conf:/var/kerberos/krb5kdc/kdc.conf
+      - keyfile:/etc/krb5.d/
+      - kdc:/etc/krb5kdc/
+      - .kerberos/config_server.py:/server/config_server.py
+      - .kerberos/supervisord.conf:/etc/supervisord.conf
+      - type: bind
+        source: ./certs/krb5.conf
+        target: /etc/krb5.conf
+    tty: true
+    depends_on:
+      - md
+    ports:
+      - 8000:8000
+    working_dir: /server
+    command: uvicorn config_server:app
+             --host 0.0.0.0 --ssl-keyfile=/certs/krbkey.pem
+             --ssl-certfile=/certs/krbcert.pem
+             --reload
 
   interface:
     build:
