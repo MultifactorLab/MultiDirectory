@@ -5,12 +5,27 @@ License: https://github.com/MultiDirectoryLab/MultiDirectory/blob/main/LICENSE
 """
 
 from contextlib import asynccontextmanager
+from enum import StrEnum
 from typing import Annotated, AsyncIterator
 
 import httpx
 from fastapi import Depends
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import Settings, get_settings
+from models import CatalogueSetting
+
+KERBEROS_STATE_NAME = 'KerberosState'
+
+
+class KerberosState(StrEnum):
+    """KRB state enum."""
+
+    NOT_CONFIGURED = '0'
+    READY = '1'
+    WAITING_FOR_RELOAD = '2'
+    DENIED = '3'
 
 
 class KerberosMDAPIClient:
@@ -97,20 +112,73 @@ class KerberosMDAPIClient:
         cls, settings: Annotated[Settings, Depends(get_settings)],
     ) -> AsyncIterator['KerberosMDAPIClient']:
         """Get async client for DI."""
+        async with cls.get_krb_ldap_client(settings) as client:
+            yield client
+
+    @classmethod
+    @asynccontextmanager
+    async def get_krb_ldap_client(
+            cls, settings: Settings) -> AsyncIterator['KerberosMDAPIClient']:
+        """Get krb client."""
         async with httpx.AsyncClient(
             timeout=30,
             verify="/certs/krbcert.pem",
-            base_url=settings.KRB5_CONFIG_SERVER,
+            base_url=str(settings.KRB5_CONFIG_SERVER),
         ) as client:
             yield cls(client)
-
-    get_krb_ldap_client = asynccontextmanager(get_krb_http_client)
 
 
 class StubKadminMDADPIClient(KerberosMDAPIClient):
     """Stub client for non set up dirs."""
 
-    async def get_principal(*args, **kwargs) -> ...: ...
-    async def change_principal_password(*args, **kwargs) -> ...: ...
-    async def create_or_update_principal_pw(*args, **kwargs) -> ...: ...
-    async def rename_princ(*args, **kwargs) -> ...: ...
+    async def add_principal(self, name: str, password: str) -> None: ...  # noqa
+
+    async def get_principal(self, name: str) -> None: ...  # type: ignore  # noqa
+
+    async def change_principal_password(  # noqa
+        self, name: str, password: str) -> None: ...  # noqa
+
+    async def create_or_update_principal_pw(  # noqa
+        self, name: str, password: str) -> None: ...  # noqa
+
+    async def rename_princ(self, name: str, new_name: str) -> None: ... # noqa
+
+
+async def get_krb_server_state(session: AsyncSession) -> 'KerberosState':
+    """Get or create server state."""
+    state = await session.scalar(
+        select(CatalogueSetting)
+        .filter(CatalogueSetting.name == KERBEROS_STATE_NAME),
+    )
+
+    if state is None:
+        session.add(
+            CatalogueSetting(
+                name=KERBEROS_STATE_NAME,
+                value=KerberosState.NOT_CONFIGURED,
+            ),
+        )
+        return KerberosState.NOT_CONFIGURED
+    return state.value
+
+
+async def set_state(session: AsyncSession, state: 'KerberosState') -> None:
+    """Set server state in database."""
+    await session.execute(
+        update(CatalogueSetting)
+        .values({"value": state})
+        .where(CatalogueSetting.name == KERBEROS_STATE_NAME),
+    )
+
+
+async def get_kerberos_class(
+    session: AsyncSession,
+) -> type[KerberosMDAPIClient] | type[StubKadminMDADPIClient]:
+    """Get kerberos server state.
+
+    :param AsyncSession session: db
+    :return type[KerberosMDAPIClient] | type[StubKadminMDADPIClient]: api
+    """
+    if await get_krb_server_state(session) == KerberosState.READY:
+        return KerberosMDAPIClient
+    return StubKadminMDADPIClient
